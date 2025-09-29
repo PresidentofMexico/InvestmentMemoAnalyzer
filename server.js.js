@@ -1,9 +1,18 @@
 const express = require('express');
 const cors = require('cors');
+const path = require('path');
 const { OpenAI } = require('openai');
 const app = express();
 app.use(cors());
 app.use(express.json());
+
+// Serve static files from the "public" directory
+app.use(express.static(path.join(__dirname, 'public')));
+
+// Serve index.html at the root URL
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
 
 // Initialize OpenAI client
 const openai = new OpenAI({
@@ -19,7 +28,7 @@ app.post('/analyze', async (req, res) => {
   try {
     // Call OpenAI: You can improve this prompt as you wish!
     const prompt = `
-You are an expert investment analyst. Given the following investment memo, generate:
+Act as an institutional-grade investment analyst and portfolio manager. Deliver rigorous, decision-ready research and portfolio guidance grounded in transparent assumptions, repeatable process, and risk management. All outputs are educational research, not individualized financial advice:
 
 1. Executive summary (2-4 sentences)
 2. Financial analysis (key numbers, growth, profitability, risks)
