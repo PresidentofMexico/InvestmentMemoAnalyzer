@@ -99,7 +99,8 @@ function readPdfAsText(file) {
   });
 }
 
-function analyzeMemo() {
+// ---- AI ANALYSIS: Replace the URL below with your real backend endpoint ----
+async function analyzeMemo() {
   const memoText = document.getElementById('memoText').value.trim();
   const inputStatus = document.getElementById('inputStatus');
   const outputStatus = document.getElementById('outputStatus');
@@ -116,22 +117,36 @@ function analyzeMemo() {
   outputStatus.className = 'status-badge status-processing';
   output.innerHTML = '';
 
-  // Demo: Simulate analysis (replace with real API call later!)
-  setTimeout(() => {
+  try {
+    // Replace this URL with your backend endpoint!
+    const response = await fetch('https://your-api.com/analyze', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ memo: memoText })
+    });
+
+    if (!response.ok) throw new Error('AI backend error: ' + response.status);
+
+    const result = await response.json();
+
     output.innerHTML = `
       <div class="info-message">
         <b>Analysis complete!</b><br><br>
-        <i>Stub: In production, this will show your investment memo summary, analysis, and audio script.</i>
-        <br><br>
-        <b>Executive Summary:</b> ...<br>
-        <b>Financial Analysis:</b> ...<br>
-        <b>Risks & Opportunities:</b> ...<br>
-        <b>Audio Script:</b> ...<br>
+        <b>Executive Summary:</b> <br>${result.executive_summary || 'N/A'}<br><br>
+        <b>Financial Analysis:</b> <br>${result.financial_analysis || 'N/A'}<br><br>
+        <b>Risks & Opportunities:</b> <br>${result.risks_opportunities || 'N/A'}<br><br>
+        <b>Audio Script:</b> <br>${result.audio_script || 'N/A'}<br>
       </div>
     `;
     inputStatus.textContent = 'Ready';
     inputStatus.className = 'status-badge status-ready';
     outputStatus.textContent = 'Analysis Complete';
     outputStatus.className = 'status-badge status-complete';
-  }, 1500);
+  } catch (err) {
+    output.innerHTML = `<div class="info-message" style="color:red;">Error: ${err.message}</div>`;
+    inputStatus.textContent = 'Ready';
+    inputStatus.className = 'status-badge status-ready';
+    outputStatus.textContent = 'Error';
+    outputStatus.className = 'status-badge status-ready';
+  }
 }
