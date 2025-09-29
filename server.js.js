@@ -6,7 +6,6 @@ app.use(express.json());
 
 app.post('/analyze', (req, res) => {
   const memo = req.body.memo || '';
-  // Replace the below with your AI logic!
   res.json({
     executive_summary: "AI-generated executive summary goes here.",
     financial_analysis: "AI-generated financial analysis goes here.",
