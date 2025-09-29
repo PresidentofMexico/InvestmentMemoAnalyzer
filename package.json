@@ -1,0 +1,25 @@
+{
+  "name": "investmentmemoanalyzer",
+  "version": "1.0.0",
+  "description": "Upload PDF or text to an HTML site and have it produce a 5-10 minute audio recording",
+  "main": "server.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node server.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/PresidentofMexico/InvestmentMemoAnalyzer.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/PresidentofMexico/InvestmentMemoAnalyzer/issues"
+  },
+  "homepage": "https://github.com/PresidentofMexico/InvestmentMemoAnalyzer#readme",
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^5.1.0"
+  }
+}
