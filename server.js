@@ -6,18 +6,15 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Serve static files from the "public" directory
 app.use(express.static(path.join(__dirname, 'public')));
-
-// Serve index.html at the root URL
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// Initialize OpenAI client
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY, // Store your OpenAI key in Render's environment variables!
-});
+// Only initialize OpenAI client if API key is present
+const openaiApiKey = process.env.OPENAI_API_KEY;
+const useMock = !openaiApiKey || process.env.USE_MOCK === 'true';
+const openai = openaiApiKey ? new OpenAI({ apiKey: openaiApiKey }) : null;
 
 app.post('/analyze', async (req, res) => {
   const memo = req.body.memo || '';
@@ -25,8 +22,18 @@ app.post('/analyze', async (req, res) => {
     return res.status(400).json({ error: "No memo text provided." });
   }
 
+  // Use mock mode if no key or USE_MOCK env var set
+  if (useMock) {
+    return res.json({
+      executive_summary: "This is a mock executive summary.",
+      financial_analysis: "This is a mock financial analysis section.",
+      risks_opportunities: "These are mock risks and opportunities.",
+      audio_script: "This is a mock audio script for your summary."
+    });
+  }
+
   try {
-    // Call OpenAI: You can improve this prompt as you wish!
+    // ... your OpenAI call here ...
     const prompt = `
 Act as an institutional-grade investment analyst and portfolio manager. Deliver rigorous, decision-ready research and portfolio guidance grounded in transparent assumptions, repeatable process, and risk management. All outputs are educational research, not individualized financial advice:
 
@@ -42,18 +49,16 @@ Format your response as JSON with fields: executive_summary, financial_analysis,
 `;
 
     const completion = await openai.chat.completions.create({
-      model: "gpt-3.5-turbo", // or "gpt-4" if you have access
+      model: "gpt-3.5-turbo",
       messages: [{ role: "user", content: prompt }],
       temperature: 0.7,
     });
 
-    // Extract JSON from the model's reply, safely
     const reply = completion.choices[0].message.content;
     let result;
     try {
       result = JSON.parse(reply);
     } catch {
-      // If not pure JSON, try to extract JSON substring
       const match = reply.match(/\{[\s\S]*\}/);
       result = match ? JSON.parse(match[0]) : { error: "AI did not return valid JSON." };
     }
