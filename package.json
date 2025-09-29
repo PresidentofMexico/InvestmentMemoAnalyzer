@@ -19,6 +19,7 @@
   },
   "homepage": "https://github.com/PresidentofMexico/InvestmentMemoAnalyzer#readme",
   "dependencies": {
+    "@openai/agents": "^0.1.6",
     "cors": "^2.8.5",
     "express": "^5.1.0",
     "openai": "^5.23.1"
