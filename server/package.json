@@ -2,7 +2,7 @@
   "name": "investment-memo-analyzer-server",
   "version": "1.0.0",
   "main": "app.js",
-  "type": "module",
+  "type": "commonjs",
   "dependencies": {
     "cors": "^2.8.5",
     "dotenv": "^16.0.0",
