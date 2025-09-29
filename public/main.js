@@ -119,7 +119,7 @@ async function analyzeMemo() {
 
   try {
     // Replace this URL with your backend endpoint!
-    const response = await fetch('https://investmentmemoanalyzer.onrender.com', {
+    const response = await fetch('/analyze', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({ memo: memoText })
