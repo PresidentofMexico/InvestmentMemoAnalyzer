@@ -49,7 +49,8 @@ const anthropicApiKey = (process.env.ANTHROPIC_API_KEY || '').trim();
 const xaiApiKey = (process.env.XAI_API_KEY || '').trim();
 try {
   if (groqApiKey) {
-    Groq = require('groq-sdk');
+    const GroqLib = require('groq-sdk');
+    Groq = GroqLib && GroqLib.default ? GroqLib.default : GroqLib;
     groqClient = new Groq({ apiKey: groqApiKey });
   }
 } catch (e) {
@@ -57,7 +58,8 @@ try {
 }
 try {
   if (anthropicApiKey) {
-    Anthropic = require('@anthropic-ai/sdk');
+    const AnthLib = require('@anthropic-ai/sdk');
+    Anthropic = (AnthLib && (AnthLib.default || AnthLib.Anthropic)) ? (AnthLib.default || AnthLib.Anthropic) : AnthLib;
     anthropicClient = new Anthropic({ apiKey: anthropicApiKey });
   }
 } catch (e) {
