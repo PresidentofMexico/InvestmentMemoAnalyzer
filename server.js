@@ -151,6 +151,15 @@ app.get('/status', (req, res) => {
   });
 });
 
+// TTS configuration status endpoint
+app.get('/tts/status', (req, res) => {
+  const enabled = !!ttsClient;
+  const language = process.env.GOOGLE_TTS_LANGUAGE || 'en-US';
+  const voice = process.env.GOOGLE_TTS_VOICE || null;
+  const maxChars = Number.parseInt(process.env.GOOGLE_TTS_MAX_CHARS || '4500', 10) || 4500;
+  res.json({ enabled, language, voice, maxChars });
+});
+
 // Diagnostics: show provider key presence and loaded SDKs (no secrets)
 app.get('/providers', (req, res) => {
   res.json({
@@ -332,19 +341,48 @@ app.post('/generate-audio', async (req, res) => {
         message: 'Mock audio generated (Text-to-Speech not configured)'
       });
     }
-
+    // Multi-segment synthesis: split into <maxChars chunks and stitch
+    const MAX_TTS_CHARS = Number.parseInt(process.env.GOOGLE_TTS_MAX_CHARS || '4500', 10) || 4500;
     const languageCode = process.env.GOOGLE_TTS_LANGUAGE || 'en-US';
     const voiceName = process.env.GOOGLE_TTS_VOICE;
     const voice = voiceName ? { languageCode, name: voiceName } : { languageCode, ssmlGender: 'NEUTRAL' };
-    const request = { input: { text }, voice, audioConfig: { audioEncoding: 'MP3' } };
 
-    const [response] = await ttsClient.synthesizeSpeech(request);
-    const audioBase64 = Buffer.from(response.audioContent).toString('base64');
-    const audioUrl = `data:audio/mp3;base64,${audioBase64}`;
-    return res.json({ audioUrl });
+    const cleaned = String(text).replace(/\s+/g, ' ').trim();
+    const sentences = cleaned.split(/(?<=[\.!?])\s+/);
+    const parts = [];
+    let acc = '';
+    for (const s of sentences) {
+      if (!s) continue;
+      if ((acc + (acc ? ' ' : '') + s).length > MAX_TTS_CHARS) {
+        if (acc) parts.push(acc);
+        if (s.length > MAX_TTS_CHARS) {
+          for (let i = 0; i < s.length; i += MAX_TTS_CHARS) parts.push(s.slice(i, i + MAX_TTS_CHARS));
+          acc = '';
+        } else {
+          acc = s;
+        }
+      } else {
+        acc = acc ? acc + ' ' + s : s;
+      }
+    }
+    if (acc) parts.push(acc);
+
+    const buffers = [];
+    const segments = [];
+    for (const p of parts) {
+      const request = { input: { text: p }, voice, audioConfig: { audioEncoding: 'MP3' } };
+      const [r] = await ttsClient.synthesizeSpeech(request);
+      const b = Buffer.from(r.audioContent || '');
+      buffers.push(b);
+      segments.push(`data:audio/mp3;base64,${b.toString('base64')}`);
+    }
+    const stitched = Buffer.concat(buffers);
+    const audioUrl = `data:audio/mp3;base64,${stitched.toString('base64')}`;
+    return res.json({ audioUrl, segments, segmentsCount: segments.length });
   } catch (error) {
-    console.error('Audio generation error:', error);
-    return res.status(500).json({ error: 'Audio generation failed' });
+    const msg = error && (error.message || error.toString());
+    console.error('Audio generation error:', msg);
+    return res.status(500).json({ error: 'Audio generation failed', detail: msg });
   }
 });
 

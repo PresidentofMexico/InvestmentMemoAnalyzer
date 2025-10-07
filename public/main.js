@@ -268,24 +268,29 @@ async function analyzeMemo() {
 }
 
 function renderAnalysisResult(result, outputEl) {
+  const fmt = (v) => {
+    if (v == null) return 'N/A';
+    if (typeof v === 'string') return v;
+    try { return JSON.stringify(v); } catch { return String(v); }
+  };
   outputEl.innerHTML = `
     <div class="analysis-result">
       <h3>Analysis Complete!</h3>
       <div class="section">
         <h4>Executive Summary</h4>
-        <p>${result.executive_summary || 'N/A'}</p>
+        <p>${fmt(result.executive_summary)}</p>
       </div>
       <div class="section">
         <h4>Financial Analysis</h4>
-        <p>${result.financial_analysis || 'N/A'}</p>
+        <p>${fmt(result.financial_analysis)}</p>
       </div>
       <div class="section">
         <h4>Risks & Opportunities</h4>
-        <p>${result.risks_opportunities || 'N/A'}</p>
+        <p>${fmt(result.risks_opportunities)}</p>
       </div>
       <div class="section">
         <h4>Audio Script</h4>
-        <p>${result.audio_script || 'N/A'}</p>
+        <p>${fmt(result.audio_script)}</p>
       </div>
     </div>
   `;
@@ -488,9 +493,9 @@ async function generateAudio() {
     }
 
     const result = await response.json();
-    
-    if (result.audioUrl) {
-      audioPlayer.src = result.audioUrl;
+    const url = result.audioUrl || (result.segments && result.segments[0]);
+    if (url) {
+      audioPlayer.src = url;
       audioPlayer.style.display = 'inline-block';
       audioPlayer.load();
     }
