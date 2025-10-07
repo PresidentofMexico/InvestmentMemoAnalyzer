@@ -1,82 +1,71 @@
+/* Palette */
+:root {
+  --blue-1: #0295FF;
+  --blue-2: #50BAFF;
+  --blue-3: #A2D7FE;
+  --blue-4: #C2E4FE;
+  --navy-900: #0E2841;
+  --grey-800: #484E57;
+  --grey-600: #657B8B;
+  --grey-300: #93A8AE;
+  --olive: #6B8600;
+  --orange: #D9731F;
+  --ochre: #F0B250;
+  --taupe: #C8C0A0;
+  --surface: #FFFFFF;
+  --surface-alt: #F7FAFD;
+  --text: #0F1A24;
+}
+
+html, body { height: 100%; }
 body {
   font-family: 'Segoe UI', Arial, sans-serif;
-  background: #eaf0fa;
+  background: linear-gradient(180deg, var(--blue-4) 0%, var(--surface-alt) 100%);
   margin: 0;
-  padding: 0;
+  color: var(--text);
 }
 .container {
-  max-width: 1100px;
+  max-width: 1120px;
   margin: 40px auto;
-  background: #fff;
-  padding: 32px;
-  border-radius: 16px;
-  box-shadow: 0 4px 24px rgba(44,62,80,0.2);
+  background: var(--surface);
+  border-radius: 14px;
+  box-shadow: 0 10px 30px rgba(14,40,65,0.15);
+  overflow: hidden;
 }
 .header {
-  background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
-  color: white;
-  padding: 40px;
-  text-align: center;
-  border-radius: 16px 16px 0 0;
-  margin-bottom: 25px;
-}
-.header h1 {
-  font-size: 2.5em;
-  margin-bottom: 15px;
-  font-weight: 700;
-}
-.header p {
-  opacity: 0.95;
-  font-size: 1.2em;
-}
-#main-content {
-  padding: 32px;
-}
-.status-badge {
-  display: inline-block;
-  padding: 4px 12px;
-  border-radius: 12px;
-  font-size: 12px;
-  font-weight: bold;
-  margin-left: 12px;
-}
-.status-ready { background: #e7f5ff; color: #1971c2; }
-.status-processing { background: #fff3cd; color: #856404; }
-.status-complete { background: #d4edda; color: #155724; }
-.info-message {
-  background: #d1ecf1;
-  color: #0c5460;
-  padding: 15px;
-  border-radius: 8px;
-  margin: 15px 0;
-  border: 1px solid #bee5eb;
-}
-textarea {
-  width: 100%;
-  height: 200px;
-  padding: 12px;
-  border-radius: 10px;
-  border: 1px solid #e0e0e0;
-  font-size: 1em;
-  margin-bottom: 16px;
-}
-button {
-  padding: 12px 32px;
-  border: none;
-  border-radius: 8px;
-  font-size: 1em;
-  font-weight: bold;
-  cursor: pointer;
-  margin-top: 8px;
-  margin-bottom: 8px;
-  background: #1e3c72;
+  background: var(--navy-900);
   color: #fff;
-  transition: background 0.2s;
+  padding: 36px 40px;
 }
-button:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
+.header h1 { margin: 0 0 8px 0; font-size: 28px; font-weight: 700; letter-spacing: .3px; }
+.header p { margin: 0; opacity: .9; font-size: 15px; }
+#main-content { padding: 28px 32px 36px; }
+
+.status-badge { display:inline-block; padding:4px 10px; border-radius:10px; font-size:12px; font-weight:600; margin-left:12px; }
+.status-ready { background: var(--blue-4); color: var(--navy-900); }
+.status-processing { background: #FFF3C4; color: #6B5900; }
+.status-complete { background: #D3F9D8; color: #1B5E20; }
+.status-error { background: #F8D7DA; color: #721C24; }
+
+.info-message { background: var(--blue-4); color: var(--navy-900); padding:14px 16px; border-radius:10px; margin:14px 0; border:1px solid var(--blue-3); }
+
+textarea {
+  width: 100%; height: 220px; padding: 12px 14px; border-radius: 10px;
+  border: 1px solid var(--grey-300); background: #fff; color: var(--text);
+  font-size: 14px; line-height: 1.45; margin-bottom: 16px;
 }
-button:hover:not(:disabled) {
-  background: #2a5298;
+textarea:focus { outline: none; border-color: var(--blue-2); box-shadow: 0 0 0 3px rgba(2,149,255,0.15); }
+
+button {
+  padding: 11px 22px; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer;
+  margin: 8px 8px 8px 0; background: var(--blue-1); color: #fff; transition: background .15s ease-in-out, transform .02s ease-in-out;
 }
+button:hover:not(:disabled) { background: var(--blue-2); }
+button:active:not(:disabled) { transform: translateY(1px); }
+button:disabled { opacity: .6; cursor: not-allowed; }
+
+.analysis-result { background:#F5F8FB; border:1px solid var(--blue-4); border-radius:12px; padding:18px 20px; }
+.analysis-result h3 { margin:0 0 10px 0; color: var(--navy-900); }
+.analysis-result .section { margin-top:12px; }
+.analysis-result .section h4 { margin:0 0 6px 0; color: var(--grey-800); font-size:15px; }
+.analysis-result .section p { margin:0; color: var(--grey-600); font-size:14px; }
