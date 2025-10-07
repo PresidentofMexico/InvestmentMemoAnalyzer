@@ -70,7 +70,7 @@ if (xaiApiKey) {
 }
 
 // Decide mock mode: true only if explicitly requested or no providers available
-const useMock = process.env.USE_MOCK === 'true' || (!groqClient && !anthropicClient && !xaiConfigured);
+const useMock = process.env.USE_MOCK === 'false' || (!groqClient && !anthropicClient && !xaiConfigured);
 
 // Initialize Text-to-Speech client (optional)
 let ttsClient = null;
