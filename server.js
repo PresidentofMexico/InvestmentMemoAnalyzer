@@ -44,9 +44,9 @@ app.get('/', (req, res) => {
 });
 
 // Initialize provider clients conditionally
-const groqApiKey = process.env.GROQ_API_KEY;
-const anthropicApiKey = process.env.ANTHROPIC_API_KEY;
-const xaiApiKey = process.env.XAI_API_KEY;
+const groqApiKey = (process.env.GROQ_API_KEY || '').trim();
+const anthropicApiKey = (process.env.ANTHROPIC_API_KEY || '').trim();
+const xaiApiKey = (process.env.XAI_API_KEY || '').trim();
 try {
   if (groqApiKey) {
     Groq = require('groq-sdk');
@@ -70,7 +70,8 @@ if (xaiApiKey) {
 }
 
 // Decide mock mode: true only if explicitly requested or no providers available
-const useMock = process.env.USE_MOCK === 'false' || (!groqClient && !anthropicClient && !xaiConfigured);
+const useMockEnv = (process.env.USE_MOCK || '').trim() === 'true';
+const useMock = useMockEnv || (!groqClient && !anthropicClient && !xaiConfigured);
 
 // Initialize Text-to-Speech client (optional)
 let ttsClient = null;
@@ -121,6 +122,7 @@ app.get('/status', (req, res) => {
   const render = !!(process.env.RENDER || process.env.RENDER_SERVICE_ID || process.env.RENDER_INSTANCE_ID);
   res.json({
     mode,
+    mock: { forced: useMockEnv },
     groq: {
       configured: !!groqApiKey,
       model: process.env.GROQ_MODEL || 'llama-3.1-70b-versatile'
@@ -143,6 +145,23 @@ app.get('/status', (req, res) => {
       renderServiceId: process.env.RENDER_SERVICE_ID || null,
       renderServiceName: process.env.RENDER_SERVICE_NAME || null,
       renderInstanceId: process.env.RENDER_INSTANCE_ID || null
+    }
+  });
+});
+
+// Diagnostics: show provider key presence and loaded SDKs (no secrets)
+app.get('/providers', (req, res) => {
+  res.json({
+    mock: { forced: useMockEnv },
+    keys: {
+      anthropic: Boolean(anthropicApiKey),
+      groq: Boolean(groqApiKey),
+      xai: Boolean(xaiApiKey)
+    },
+    modules: {
+      anthropicLoaded: Boolean(anthropicClient),
+      groqLoaded: Boolean(groqClient),
+      xaiConfigured: Boolean(xaiConfigured)
     }
   });
 });
@@ -196,7 +215,6 @@ app.post('/analyze', async (req, res) => {
     if (provider) {
       if (provider === 'anthropic' && !anthropicClient) throw new Error('Requested provider anthropic not configured');
       if (provider === 'groq' && !groqClient) throw new Error('Requested provider groq not configured');
-      if (provider === 'openai' && !openai) throw new Error('Requested provider openai not configured');
       if (provider === 'xai' && !xaiConfigured) throw new Error('Requested provider xai not configured');
     }
     // Anthropic first by default when available
@@ -318,5 +336,6 @@ app.listen(PORT, () => {
   const ttsVoice = process.env.GOOGLE_TTS_VOICE || 'default(neutral)';
   console.log(`Server running on port ${PORT}`);
   console.log(`Mode: ${mode}`);
+  console.log(`Provider keys present -> anthropic:${!!anthropicApiKey} groq:${!!groqApiKey} xai:${!!xaiApiKey} (mockForced:${useMockEnv})`);
   console.log(`TTS: ${ttsConfigured ? `enabled (lang: ${ttsLang}, voice: ${ttsVoice})` : 'disabled (mock audio)'}`);
 });
