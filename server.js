@@ -230,10 +230,34 @@ app.post('/analyze', async (req, res) => {
         messages: [{ role: 'user', content: `${userPrompt}\n\nReturn only valid JSON with keys: executive_summary, financial_analysis, risks_opportunities, audio_script.` }]
       });
       const reply = msg?.content?.[0]?.text || '';
-      let json;
-      try { json = JSON.parse(reply); } catch { const m = reply.match(/\{[\s\S]*\}/); json = m ? JSON.parse(m[0]) : null; }
-      if (!json) throw new Error('Anthropic did not return JSON');
-      return res.json(json);
+      const json = (function parseJsonFromText(text){
+        if (!text) return null;
+        const fence = text.match(/```json\s*([\s\S]*?)```/i);
+        const candidate = fence ? fence[1] : text;
+        try { return JSON.parse(candidate); } catch {}
+        const m = candidate.match(/\{[\s\S]*\}/);
+        if (m) { try { return JSON.parse(m[0]); } catch {} }
+        return null;
+      })(reply);
+      if (json) return res.json(json);
+      // Fallback: extract by section headings if JSON is malformed
+      const t = (reply || '').replace(/\r/g,'');
+      const pick = (label, next)=>{
+        const nextAlt = next.map(n=>n.replace(/([.*+?^${}()|\[\]\\])/g,'\\$1')).join('|');
+        const re=new RegExp(`${label}[:\n]+([\"'\-\u2022\s\S]*?)(?=(?:${nextAlt})[:\n]|$)`,'i');
+        const m=t.match(re); return m?m[1].trim():'';
+      };
+      const labels=['Executive Summary','Financial Analysis','Risks & Opportunities','Risks and Opportunities','Audio Script'];
+      const exec=pick('Executive Summary',labels.filter(l=>l!=='Executive Summary'));
+      const fin=pick('Financial Analysis',labels.filter(l=>l!=='Financial Analysis'));
+      const risks=pick('Risks & Opportunities',labels.filter(l=>l!=='Risks & Opportunities'))||pick('Risks and Opportunities',labels.filter(l=>l!=='Risks and Opportunities'));
+      const audio=pick('Audio Script',[]);
+      return res.json({
+        executive_summary: exec || 'N/A',
+        financial_analysis: fin || 'N/A',
+        risks_opportunities: risks || 'N/A',
+        audio_script: audio || 'N/A'
+      });
     }
 
     if ((provider === 'groq' || (!provider && groqClient)) && groqClient) {
@@ -247,10 +271,12 @@ app.post('/analyze', async (req, res) => {
         temperature: 0.7
       });
       const reply = completion.choices?.[0]?.message?.content || '';
-      let json;
-      try { json = JSON.parse(reply); } catch { const m = reply.match(/\{[\s\S]*\}/); json = m ? JSON.parse(m[0]) : null; }
-      if (!json) throw new Error('Groq did not return JSON');
-      return res.json(json);
+      const fence = reply.match(/```json\s*([\s\S]*?)```/i);
+      const candidate = fence ? fence[1] : reply;
+      let json=null; try{ json=JSON.parse(candidate);}catch{ const m=candidate.match(/\{[\s\S]*\}/); if(m){ try{ json=JSON.parse(m[0]); }catch{} } }
+      if (json) return res.json(json);
+      // Fallback sections
+      return res.json({ executive_summary: reply.slice(0,4000), financial_analysis: 'N/A', risks_opportunities: 'N/A', audio_script: 'N/A' });
     }
 
     // xAI Grok provider via REST API
@@ -277,10 +303,11 @@ app.post('/analyze', async (req, res) => {
       }
       const data = await resp.json();
       const reply = data?.choices?.[0]?.message?.content || '';
-      let json;
-      try { json = JSON.parse(reply); } catch { const m = reply.match(/\{[\s\S]*\}/); json = m ? JSON.parse(m[0]) : null; }
-      if (!json) throw new Error('xAI did not return JSON');
-      return res.json(json);
+      const fence = reply.match(/```json\s*([\s\S]*?)```/i);
+      const candidate = fence ? fence[1] : reply;
+      let json=null; try{ json=JSON.parse(candidate);}catch{ const m=candidate.match(/\{[\s\S]*\}/); if(m){ try{ json=JSON.parse(m[0]); }catch{} } }
+      if (json) return res.json(json);
+      return res.json({ executive_summary: reply.slice(0,4000), financial_analysis: 'N/A', risks_opportunities: 'N/A', audio_script: 'N/A' });
     }
 
     // No providers available
