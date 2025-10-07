@@ -20,6 +20,12 @@ document.addEventListener("DOMContentLoaded", function() {
       <div id="exportSection" style="margin-top:16px; display:none;">
         <button id="exportBtn">Export Summary</button>
         <button id="generateAudioBtn">Generate Audio</button>
+        <button id="playBrowserTTSBtn" title="Play with your browser's built-in voice">Play In Browser</button>
+        <button id="recordBrowserTTSBtn" title="Record tab audio to file (WebM)">Record Speech</button>
+        <div style="margin-top:8px; display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
+          <label>Voice: <select id="voiceSelect"></select></label>
+          <label>Rate: <input id="rateRange" type="range" min="0.7" max="1.3" step="0.05" value="1"/> <span id="rateLabel">1.00x</span></label>
+        </div>
         <audio id="audioPlayer" controls style="display:none; margin-left:8px;"></audio>
       </div>
     </div>
@@ -33,6 +39,36 @@ document.addEventListener("DOMContentLoaded", function() {
   document.getElementById("fileInput").onchange = handleFileUpload;
   document.getElementById("exportBtn").onclick = exportSummary;
   document.getElementById("generateAudioBtn").onclick = generateAudio;
+  document.getElementById("playBrowserTTSBtn").onclick = playBrowserTTS;
+  document.getElementById("recordBrowserTTSBtn").onclick = recordBrowserTTS;
+  const rateRange = document.getElementById('rateRange');
+  const rateLabel = document.getElementById('rateLabel');
+  if (rateRange) {
+    rateRange.addEventListener('input', () => {
+      rateLabel.textContent = Number(rateRange.value).toFixed(2) + 'x';
+    });
+  }
+  // Populate voices if available
+  if ('speechSynthesis' in window) {
+    const populateVoices = () => {
+      const sel = document.getElementById('voiceSelect');
+      if (!sel) return;
+      sel.innerHTML = '';
+      const vs = window.speechSynthesis.getVoices();
+      vs.forEach((v, i) => {
+        const opt = document.createElement('option');
+        opt.value = v.name;
+        opt.textContent = `${v.name} (${v.lang})`;
+        sel.appendChild(opt);
+      });
+      // Choose an en-US by default
+      const idx = Array.from(sel.options).findIndex(o => /en-US/i.test(o.textContent));
+      if (idx >= 0) sel.selectedIndex = idx;
+    };
+    window.speechSynthesis.addEventListener('voiceschanged', populateVoices);
+    // Try populate immediately
+    setTimeout(populateVoices, 200);
+  }
 
   // Drag & drop support
   const uploadArea = document.getElementById("fileUploadArea");
@@ -506,5 +542,136 @@ async function generateAudio() {
   } finally {
     generateBtn.disabled = false;
     generateBtn.textContent = 'Generate Audio';
+  }
+}
+
+// -------- Browser TTS (fallback) --------
+let currentUtterances = [];
+let voicesCache = [];
+
+function getVoicesCached() {
+  if (voicesCache.length) return voicesCache;
+  voicesCache = window.speechSynthesis ? window.speechSynthesis.getVoices() : [];
+  return voicesCache;
+}
+
+function chooseVoice(langPref = 'en-US') {
+  const voices = getVoicesCached();
+  if (!voices || !voices.length) return null;
+  const sel = document.getElementById('voiceSelect');
+  if (sel && sel.value) {
+    const chosen = voices.find(v => v.name === sel.value);
+    if (chosen) return chosen;
+  }
+  // Prefer exact lang, otherwise first voice
+  return voices.find(v => v.lang && v.lang.toLowerCase().startsWith(langPref.toLowerCase())) || voices[0];
+}
+
+function splitIntoSpeakable(text, maxLen = 4000) {
+  const sents = String(text).split(/(?<=[\.\!\?])\s+/);
+  const out = [];
+  let buf = '';
+  for (const s of sents) {
+    if (!s) continue;
+    if ((buf + (buf ? ' ' : '') + s).length > maxLen) {
+      if (buf) out.push(buf);
+      if (s.length > maxLen) {
+        for (let i = 0; i < s.length; i += maxLen) out.push(s.slice(i, i + maxLen));
+        buf = '';
+      } else {
+        buf = s;
+      }
+    } else {
+      buf = buf ? buf + ' ' + s : s;
+    }
+  }
+  if (buf) out.push(buf);
+  return out;
+}
+
+async function playBrowserTTS() {
+  if (!('speechSynthesis' in window)) {
+    alert('Browser TTS not supported here. Try Chrome/Edge.');
+    return;
+  }
+  if (!currentAnalysisResult || !currentAnalysisResult.audio_script) {
+    alert('No audio script available');
+    return;
+  }
+  // Ensure voices are loaded
+  if (speechSynthesis.getVoices().length === 0) {
+    await new Promise(resolve => {
+      const h = () => { speechSynthesis.removeEventListener('voiceschanged', h); resolve(); };
+      speechSynthesis.addEventListener('voiceschanged', h);
+      speechSynthesis.getVoices();
+      setTimeout(resolve, 500);
+    });
+  }
+  const voice = chooseVoice('en-US');
+  const rate = parseFloat(document.getElementById('rateRange')?.value || '1');
+  const chunks = splitIntoSpeakable(currentAnalysisResult.audio_script, 4000);
+  // Cancel any ongoing
+  speechSynthesis.cancel();
+  currentUtterances = chunks.map((t) => {
+    const u = new SpeechSynthesisUtterance(t);
+    u.voice = voice; u.rate = rate; u.pitch = 1; u.volume = 1;
+    return u;
+  });
+  for (const u of currentUtterances) speechSynthesis.speak(u);
+}
+
+// Record spoken audio by capturing the tab via getDisplayMedia.
+// Note: User must select "This Tab" and enable "Share tab audio".
+let recState = { recorder: null, chunks: [], stream: null };
+async function recordBrowserTTS() {
+  if (!('mediaDevices' in navigator) || !navigator.mediaDevices.getDisplayMedia) {
+    alert('Screen capture with audio not supported in this browser.');
+    return;
+  }
+  if (!currentAnalysisResult || !currentAnalysisResult.audio_script) {
+    alert('No audio script available');
+    return;
+  }
+  try {
+    const stream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
+    const recorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
+    recState = { recorder, chunks: [], stream };
+    recorder.ondataavailable = (e) => { if (e.data && e.data.size > 0) recState.chunks.push(e.data); };
+    recorder.onstop = async () => {
+      try { stream.getTracks().forEach(t => t.stop()); } catch {}
+      const blob = new Blob(recState.chunks, { type: 'audio/webm' });
+      // Ask user whether to convert to MP3 on server
+      const doConvert = confirm('Recording complete. Convert to MP3? Click Cancel to download WebM instead.');
+      if (doConvert) {
+        try {
+          const fd = new FormData();
+          fd.append('file', blob, `speech_${Date.now()}.webm`);
+          const r = await fetch(getApiUrl('/convert-audio'), { method: 'POST', body: fd });
+          if (!r.ok) throw new Error(`Convert failed: ${r.status}`);
+          const j = await r.json();
+          const a = document.createElement('a');
+          a.href = j.audioUrl; a.download = j.filename || `speech_${Date.now()}.mp3`;
+          document.body.appendChild(a); a.click(); a.remove();
+        } catch (err) {
+          console.error('Convert error:', err);
+          alert('Convert error: ' + (err && err.message ? err.message : err));
+        }
+      } else {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = `memo_audio_${new Date().toISOString().slice(0,10)}.webm`;
+        document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+      }
+    };
+    recorder.start();
+    await playBrowserTTS();
+    // Stop when last utterance ends
+    const last = currentUtterances[currentUtterances.length - 1];
+    await new Promise(resolve => { last.addEventListener('end', resolve, { once: true }); });
+    recorder.stop();
+  } catch (err) {
+    console.error('Recording failed:', err);
+    alert('Recording failed: ' + (err && err.message ? err.message : err));
   }
 }

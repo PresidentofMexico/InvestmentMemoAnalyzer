@@ -4,6 +4,8 @@ const path = require('path');
 const multer = require('multer');
 const fs = require('fs');
 const textToSpeech = require('@google-cloud/text-to-speech');
+const ffmpeg = require('fluent-ffmpeg');
+const ffmpegPath = require('ffmpeg-static');
 let Groq, groqClient = null;
 let Anthropic, anthropicClient = null;
 let xaiConfigured = false;
@@ -383,6 +385,40 @@ app.post('/generate-audio', async (req, res) => {
     const msg = error && (error.message || error.toString());
     console.error('Audio generation error:', msg);
     return res.status(500).json({ error: 'Audio generation failed', detail: msg });
+  }
+});
+
+// Convert uploaded WebM/Opus (or other) audio to MP3 and return as data URL
+app.post('/convert-audio', upload.single('file'), async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
+    if (!ffmpegPath) return res.status(500).json({ error: 'FFmpeg binary not available' });
+    ffmpeg.setFfmpegPath(ffmpegPath);
+
+    const inputPath = req.file.path;
+    const outputPath = inputPath + '.mp3';
+
+    await new Promise((resolve, reject) => {
+      ffmpeg(inputPath)
+        .audioCodec('libmp3lame')
+        .audioBitrate('128k')
+        .format('mp3')
+        .save(outputPath)
+        .on('end', resolve)
+        .on('error', reject);
+    });
+
+    const mp3 = fs.readFileSync(outputPath);
+    const dataUrl = `data:audio/mpeg;base64,${Buffer.from(mp3).toString('base64')}`;
+
+    // Cleanup temp files
+    try { fs.unlinkSync(inputPath); } catch {}
+    try { fs.unlinkSync(outputPath); } catch {}
+
+    return res.json({ audioUrl: dataUrl, filename: (req.file.originalname || 'audio').replace(/\.[^.]+$/, '') + '.mp3' });
+  } catch (err) {
+    console.error('Convert audio error:', err && (err.message || err));
+    return res.status(500).json({ error: 'Audio conversion failed', detail: err && (err.message || String(err)) });
   }
 });
 
