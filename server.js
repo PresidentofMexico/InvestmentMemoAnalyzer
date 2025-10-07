@@ -221,10 +221,11 @@ app.post('/analyze', async (req, res) => {
     }
     // Anthropic first by default when available
     if ((provider === 'anthropic' || (!provider && anthropicClient)) && anthropicClient) {
-      const model = process.env.ANTHROPIC_MODEL || 'claude-3-5-sonnet-20240620';
+      const model = process.env.ANTHROPIC_MODEL || 'claude-3-haiku-20240307';
+      const maxTokens = Number.parseInt(process.env.ANTHROPIC_MAX_TOKENS || '800', 10) || 800;
       const msg = await anthropicClient.messages.create({
         model,
-        max_tokens: 1200,
+        max_tokens: maxTokens,
         system: systemPrompt,
         messages: [{ role: 'user', content: `${userPrompt}\n\nReturn only valid JSON with keys: executive_summary, financial_analysis, risks_opportunities, audio_script.` }]
       });
